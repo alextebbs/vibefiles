@@ -1,0 +1,9 @@
+{
+  "providers": {
+    "fireworks": {
+      "api": "openai-completions",
+      "apiKey": "FIREWORKS_API_KEY",
+      "baseUrl": "https://us.api.fireworks.ai/inference/v1"
+    }
+  }
+}

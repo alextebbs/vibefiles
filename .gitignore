@@ -1,0 +1,26 @@
+# vibefiles — deny everything, whitelist the good stuff
+/*
+!/.gitignore
+!/.pi/
+!/.omp/
+
+# pi: settings, model definitions, slim extensions
+.pi/agent/*
+!.pi/agent/settings.json
+!.pi/agent/models.json
+!.pi/agent/extensions/
+.pi/agent/extensions/*
+!.pi/agent/extensions/slim-tools.ts
+!.pi/agent/extensions/slim-footer.ts
+
+# omp: settings + model definitions
+.omp/agent/*
+!.omp/agent/config.yml
+!.omp/agent/models.json
+!.omp/agent/models.yml
+
+# omp runtime noise
+.omp/cache/
+.omp/logs/
+.omp/natives/
+.omp/run/

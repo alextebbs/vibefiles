@@ -1,0 +1,86 @@
+{
+  "providers": {
+    "fireworks": {
+      "baseUrl": "https://us.api.fireworks.ai/inference",
+      "models": [
+        {
+          "id": "accounts/fireworks/models/deepseek-v4p1-flash",
+          "name": "accounts/fireworks/models/deepseek-v4p1-flash",
+          "api": "anthropic-messages",
+          "baseUrl": "https://us.api.fireworks.ai/inference",
+          "reasoning": true,
+          "contextWindow": 1048576,
+          "compat": {
+            "sendSessionAffinityHeaders": true,
+            "supportsEagerToolInputStreaming": false,
+            "supportsCacheControlOnTools": false,
+            "supportsLongCacheRetention": false
+          }
+        },
+        {
+          "id": "accounts/fireworks/models/glm-5p3",
+          "name": "accounts/fireworks/models/glm-5p3",
+          "api": "anthropic-messages",
+          "baseUrl": "https://us.api.fireworks.ai/inference",
+          "reasoning": true,
+          "contextWindow": 1048576,
+          "compat": {
+            "sendSessionAffinityHeaders": true,
+            "supportsEagerToolInputStreaming": false,
+            "supportsCacheControlOnTools": false,
+            "supportsLongCacheRetention": false
+          }
+        },
+        {
+          "id": "accounts/fireworks/models/kimi-k3",
+          "name": "accounts/fireworks/models/kimi-k3",
+          "api": "anthropic-messages",
+          "baseUrl": "https://us.api.fireworks.ai/inference",
+          "reasoning": true,
+          "contextWindow": 1048576,
+          "compat": {
+            "sendSessionAffinityHeaders": true,
+            "supportsEagerToolInputStreaming": false,
+            "supportsCacheControlOnTools": false,
+            "supportsLongCacheRetention": false
+          }
+        },
+        {
+          "id": "accounts/fireworks/models/minimax-m3",
+          "name": "accounts/fireworks/models/minimax-m3",
+          "api": "anthropic-messages",
+          "baseUrl": "https://us.api.fireworks.ai/inference",
+          "reasoning": true,
+          "contextWindow": 512000,
+          "compat": {
+            "sendSessionAffinityHeaders": true,
+            "supportsEagerToolInputStreaming": false,
+            "supportsCacheControlOnTools": false,
+            "supportsLongCacheRetention": false
+          }
+        },
+        {
+          "id": "accounts/fireworks/models/qwen3p8-2p4t-a95b",
+          "name": "accounts/fireworks/models/qwen3p8-2p4t-a95b",
+          "api": "anthropic-messages",
+          "baseUrl": "https://us.api.fireworks.ai/inference",
+          "reasoning": true,
+          "contextWindow": 262144,
+          "compat": {
+            "sendSessionAffinityHeaders": true,
+            "supportsEagerToolInputStreaming": false,
+            "supportsCacheControlOnTools": false,
+            "supportsLongCacheRetention": false
+          }
+        }
+      ]
+    },
+    "together": {
+      "modelOverrides": {
+        "zai-org/GLM-5.3-Flash": {
+          "contextWindow": 1048575
+        }
+      }
+    }
+  }
+}

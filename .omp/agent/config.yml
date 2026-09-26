@@ -1,0 +1,26 @@
+composer:
+    shape: borderless
+dev:
+    autoqa: false
+display:
+    hideToolActivity: false
+edit:
+    modelVariants:
+        deepseek-v4-flash: replace
+        deepseek-v4-pro: replace
+hideThinkingBlock: true
+startup:
+    checkUpdate: false
+    quiet: true
+    setupWizard: false
+    showSplash: false
+statusLine:
+    preset: minimal
+    separator: none
+    sessionAccent: false
+    showHookStatus: false
+    transparent: true
+theme:
+    dark: dark-terminal
+tools:
+    format: native
