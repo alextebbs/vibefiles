@@ -1,6 +1,7 @@
 # vibefiles — deny everything, whitelist the good stuff
 /*
 !/.gitignore
+!/install.sh
 !/.pi/
 !/.omp/
 
