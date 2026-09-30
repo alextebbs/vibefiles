@@ -1,11 +1,8 @@
 {
   "packages": [
-    "/opt/npm-tools/node_modules/pi-mcp-adapter",
-    "/opt/npm-tools/node_modules/pi-codex-token",
     "npm:pi-web-search"
   ],
   "theme": "dark",
-  "lastChangelogVersion": "0.87.0",
   "outputPad": 1,
   "editorPaddingX": 1,
   "hideThinkingBlock": true,
