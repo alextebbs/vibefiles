@@ -9,6 +9,7 @@
 //   ✓ ⌕ TODO · 14 lines
 //   ✓ 🔗 example.com/page.html +1 · page summary      0.9s
 //   ✓ ⌥ c1internal/find_api_objects · {"type":"App",…}
+//   ✓ ⌥ codemode · 2 calls (find, bash) · Demo done   0.3s
 //
 // Status icon: ✓ success / ✗ failure (red) / ◆ running (ticking clock). The
 // identity of each call (command's first word, path, pattern, server/tool) is
@@ -58,6 +59,7 @@ const TOOL_ICONS: Record<string, string> = {
 	ls: "\uF07B", // fa-folder
 	mcp: "\uF1E6", // fa-plug
 	mcpScript: "\uF121", // fa-code
+	codemode: "\uF121", // fa-code (pi's native codemode tool)
 	web_search: "\uF0AC", // fa-globe
 	url_context: "\uF0C1", // fa-link
 };
@@ -206,6 +208,28 @@ function lastLine(result: ToolResult): string {
 		if (s) return s;
 	}
 	return "(no output)";
+}
+
+function firstLineOf(text: string): string {
+	for (const l of text.replace(/\r/g, "").replace(/\n$/, "").split("\n")) {
+		const s = l.trim();
+		if (s) return s;
+	}
+	return "";
+}
+
+function lastLineOf(text: string): string {
+	const lines = text.replace(/\r/g, "").replace(/\n$/, "").split("\n");
+	for (let i = lines.length - 1; i >= 0; i--) {
+		const s = lines[i].trim();
+		if (s) return s;
+	}
+	return "";
+}
+
+// pi's formatCost (renderer.js): two decimals above a cent, two significant digits below.
+function formatCost(cost: number): string {
+	return `$${cost >= 0.01 ? cost.toFixed(2) : cost.toPrecision(2)}`;
 }
 
 function oneLine(s: string): string {
@@ -425,16 +449,47 @@ function lsFinal(result: ToolResult, args: Args, theme: Theme, ctx: Ctx, toolNam
 
 // ---------------------------------------------------------------------------
 // Row classification for render-level restyling: MCP rows (the adapter's proxy
-// and direct tools) plus the pi-web-search package tools. These tools can't be
-// re-registered safely (their execute closures aren't reachable), so their rows
-// are restyled at the component level instead.
+// and direct tools), the pi-web-search package tools, and pi's native codemode
+// tool. Restyling at the component level keeps their execute paths untouched —
+// re-registering codemode would make pi drop the builtin codemode extension
+// (it's marked replaceable), and its execute closure isn't reachable either.
+
+const SCRIPT_HEADER = /^Script (completed|failed)\nWall time [\d.]+ seconds\nOutput:\n$/;
+
+// Codemode's result content starts with the "Script completed/failed" header
+// block; drop it so first/last-line digests see the script's real output.
+function codemodeOutput(result: ToolResult): string {
+	const blocks = result?.content ?? [];
+	const [first, ...rest] = blocks as Array<{ type: string; text?: string }>;
+	const hasHeader = first?.type === "text" && typeof first.text === "string" && SCRIPT_HEADER.test(first.text);
+	return (hasHeader ? rest : blocks)
+		.filter((c) => c.type === "text")
+		.map((c) => c.text || "")
+		.join("\n");
+}
+
+// One line for a finished codemode row: what the script called, what it printed
+// (or the error line), and its classifier cost when there was one.
+function codemodeDigest(result: ToolResult, failed: boolean): string {
+	const calls: any[] = Array.isArray(result?.details?.calls) ? result.details.calls : [];
+	const names: string[] = [];
+	for (const call of calls) {
+		if (typeof call?.name === "string" && !names.includes(call.name)) names.push(call.name);
+	}
+	const list = names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
+	const summary = names.length ? `${names.length} call${names.length === 1 ? "" : "s"} (${list})` : "";
+	const output = codemodeOutput(result);
+	const body = failed ? lastLineOf(output) : firstLineOf(output);
+	const cost = calls.reduce((sum, call) => sum + (typeof call?.cost === "number" ? call.cost : 0), 0);
+	return [summary, body, cost > 0 ? formatCost(cost) : ""].filter(Boolean).join(" · ");
+}
 // ---------------------------------------------------------------------------
 
 const WEB_TOOLS = new Set(["web_search", "url_context"]);
 
 function isSlimRow(comp: any): boolean {
 	if (WEB_TOOLS.has(comp?.toolName)) return true;
-	if (comp?.toolName === "mcp" || comp?.toolName === "mcpScript") return true;
+	if (comp?.toolName === "mcp" || comp?.toolName === "mcpScript" || comp?.toolName === "codemode") return true;
 	if (typeof comp?.toolDefinition?.label === "string" && comp.toolDefinition.label.startsWith("MCP")) return true;
 	return comp?.result?.details?.mode === "call";
 }
@@ -455,7 +510,7 @@ function mcpOneLine(comp: any, width: number, elapsed = ""): string {
 	const result = comp.result;
 	const failed = result?.isError === true || !!result?.details?.error;
 	const partial = comp.isPartial === true;
-	const isScript = comp.toolName === "mcpScript";
+	const isScript = comp.toolName === "mcpScript" || comp.toolName === "codemode";
 
 	const st = statusGlyph(failed, partial, theme);
 	const glyph = fg("accent", TOOL_ICONS[comp.toolName] ?? "\uF1E6");
@@ -479,7 +534,11 @@ function mcpOneLine(comp: any, width: number, elapsed = ""): string {
 	if (partial) {
 		if (isScript && typeof args?.code === "string") digest = `${args.code.length} chars`;
 	} else if (result) {
-		digest = failed ? lastLine(result) : firstLine(result);
+		if (comp.toolName === "codemode") {
+			digest = codemodeDigest(result, failed);
+		} else {
+			digest = failed ? lastLine(result) : firstLine(result);
+		}
 		// MCP results are often one giant JSON line — cap before styling.
 		if (digest.length > 120) digest = digest.slice(0, 119) + "…";
 	}
@@ -605,15 +664,20 @@ function makeRenderWrapper(origRender: any): (this: any, width: number) => strin
 function patchToolExecProto(sourcePath: string, proto: any): void {
 	if (!proto || typeof proto.render !== "function") return;
 
-	// Generational check: /reload gives each load a fresh module, but the host
-	// prototype persists. Wrappers carry the permanent SLIM_WRAPPER name; only a
-	// wrapper we recognize is rewrapped (replacing the previous generation).
+	// Generational replace: /reload keeps the host prototype (and this
+	// extension's previous wrapper) alive. A recognized wrapper is swapped for
+	// this generation's, wrapped around the stashed pristine render when one
+	// exists; a legacy install (pre-stash) leaves only its wrapper, so this
+	// generation chains over it — the outermost wrapper wins on the rows it
+	// restyles, at the cost of one extra layer.
 	const existing = String(proto.render);
-	if (proto.__slimGap && !existing.includes("SLIM_WRAPPER")) {
+	const ours = existing.includes("SLIM_WRAPPER");
+	if (proto.__slimGap && !ours) {
 		slimDiag.foreignWrapper = existing.slice(0, 200);
 		return; // wrapped by foreign code — don't stack
 	}
-	if (existing.includes("SLIM_WRAPPER")) return; // this generation already installed
+	const pristine = typeof proto.__slimOriginalRender === "function" ? proto.__slimOriginalRender : proto.render;
+	proto.__slimOriginalRender = pristine;
 	proto.__slimGap = true;
 	slimDiag.patched.push(sourcePath);
 
@@ -637,11 +701,7 @@ function patchToolExecProto(sourcePath: string, proto: any): void {
 		};
 	}
 
-	proto.render = makeRenderWrapper(proto.render);
-}
-
-function patchToolExecClass(sourcePath: string, ToolExec: any): void {
-	patchToolExecProto(sourcePath, ToolExec?.prototype);
+	proto.render = makeRenderWrapper(pristine);
 }
 
 function findToolExecExport(m: any, depth = 2): any {
@@ -675,16 +735,31 @@ function findToolExecExport(m: any, depth = 2): any {
 async function installGapCollapser(): Promise<void> {
 	// ONE import path resolves correctly in every runtime mode: the package
 	// specifier maps to the host's own module graph (virtual modules in the
-	// bundled runtime, the aliased dist entry in dev mode).
-	let m: any;
+	// bundled runtime, the aliased dist entry in dev mode). Under /reload the
+	// graph is usually cached, so the scan finds the prototype still carrying
+	// the previous generation's wrapper; a rebuilt graph yields an unwrapped
+	// class. The prototype captured by an earlier load is the fallback.
+	const stash = (globalThis as any).__slimToolExecProto;
+	let scanned: any;
+	let unwrapped = false;
 	try {
-		m = await import("@earendil-works/pi-coding-agent");
+		const m: any = await import("@earendil-works/pi-coding-agent");
+		const mod = m?.ToolExecutionComponent ? m : m?.default;
+		const te = findToolExecExport(mod) ?? findToolExecExport(m);
+		scanned = te?.prototype;
+		unwrapped = !!scanned && typeof scanned.render === "function" && !String(scanned.render).includes("SLIM_WRAPPER");
 	} catch {
-		return; // binding failure = stock spacing, never a crash
+		// binding failure: fall back to the stash, else stock spacing
 	}
-	const mod = m?.ToolExecutionComponent ? m : m?.default;
-	const te = findToolExecExport(mod) ?? findToolExecExport(m);
-	if (te) patchToolExecClass("package specifier", te);
+	// Preference: a fresh unwrapped class (first install or rebuilt graph), then
+	// the stashed live prototype (cached host module or failed import), then a
+	// wrapped scan result (bootstrap: legacy generation never stashed — chain
+	// over it).
+	const target = unwrapped ? scanned : typeof stash?.render === "function" ? stash : scanned;
+	if (target && typeof target.render === "function") {
+		(globalThis as any).__slimToolExecProto = target;
+		patchToolExecProto("package specifier", target);
+	}
 }
 
 // ---------------------------------------------------------------------------
